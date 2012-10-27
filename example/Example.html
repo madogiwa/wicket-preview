@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+
+  <!-- wicket-preview -->
+  <wicket:remove>
+    <script src="../wicket-preview.js"></script>
+  </wicket:remove>
+
+  <title>Example</title>
+</head>
+
+<body>
+<wicket:extend data-parent="SideBar">
+
+  <div>
+    Example
+  </div>
+
+  <div>
+    <div wicket:id="fragmentA" data-fragment="fragment1">
+    </div>
+    <div wicket:id="fragmentB" data-fragment="fragment2">
+    </div>
+    <div wicket:id="fragmentC" data-fragment="fragment1">
+    </div>
+  </div>
+
+  <wicket:fragment wicket:id="fragment1">
+    <div class="well">
+      fragment1
+    </div>
+  </wicket:fragment>
+  <wicket:fragment wicket:id="fragment2">
+    <div class="well">
+      fragment2
+    </div>
+  </wicket:fragment>
+
+</wicket:extend>
+</body>
+</html>
+

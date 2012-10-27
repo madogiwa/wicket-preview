@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+
+  <!-- wicket-preview -->
+  <wicket:remove>
+    <script src="../wicket-preview.js"></script>
+  </wicket:remove>
+
+  <title>SideBar</title>
+</head>
+
+<body>
+<wicket:extend data-parent="Base">
+
+  <div class="row">
+    <div class="span3">
+      <div wicket:id="searchPanel" data-panel="SearchPanel">
+      </div>
+
+      <div class="well sidebar-nav">
+        <ul class="nav nav-list">
+          <li class="nav-header">Menu1</li>
+          <li class="active"><a href="#">item1</a></li>
+
+          <li class="nav-header">Menu2</li>
+          <li wicket:id="list" data-repeat="10"><a href="#">Links</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="span9">
+      <wicket:child />
+    </div>
+  </div>
+
+</wicket:extend>
+</body>
+</html>
+
