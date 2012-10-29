@@ -20,8 +20,18 @@ wicketPreview.pageHeaderContribution = wicketPreview.pageHeaderContribution || f
   function loadLibrary() {
     var script = document.createElement("script");
     script.src = "https://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js";
+    var loaded = false;
     script.onload = function(){
-      process();
+      if (!loaded) {
+        loaded = true;
+        process();
+      }
+    };
+    script.onreadystatechange = function(){
+      if (!loaded && (this.readyState == "loaded" || this.readyState == "complete")) {
+        loaded = true;
+        process();
+      }
     };
     document.getElementsByTagName("head")[0].appendChild(script);
   };
@@ -47,10 +57,62 @@ wicketPreview.pageHeaderContribution = wicketPreview.pageHeaderContribution || f
 
   function getParentName(node) {
     var extend = $('wicket\\:extend[data-parent]', node);
-    if (extend.length != 1) {
-      return null;
+    if (extend.length == 1) {
+      return extend.data('parent');
     }
-    return extend.data('parent');
+
+    var extendForIE = document.getElementsByTagName('wicket:extend');
+    for(var i = 0; i < extendForIE.length; i++) {
+      if (isDescendantNode(extendForIE[i], $(node).get(0))) {
+        return extendForIE[i].getAttribute('data-parent');
+      }
+    }
+
+    // for IE7
+    var extendForIE7 = document.getElementsByTagName('extend');
+    for(var i = 0; i < extendForIE7.length; i++) {
+      if (isDescendantNode(extendForIE7[i], $(node).get(0))) {
+        return extendForIE7[i].getAttribute('data-parent');
+      }
+    }
+
+
+    return null;
+  };
+
+  function isDescendantNode(node, parentNode) {
+    var current = node;
+    while(current) {
+      if (current == parentNode) {
+        return true;
+      }
+      current = current.parentNode;
+    }
+    return false; 
+  };
+
+  function getChildNode(node) {
+    var child = $(node).find('wicket\\:child');
+    if (child.length == 1) {
+      return child;
+    }
+
+    var childForIE = document.getElementsByTagName('wicket:child');
+    for(var i = 0; i < childForIE.length; i++) {
+      if (isDescendantNode(childForIE[i], $(node).get(0))) {
+        return childForIE[i];
+      }
+    }
+
+    // for IE7
+    var childForIE7 = document.getElementsByTagName('child');
+    for(var i = 0; i < childForIE7.length; i++) {
+      if (isDescendantNode(childForIE7[i], $(node).get(0))) {
+        return childForIE7[i];
+      }
+    }
+
+    return null;
   };
 
   function getChildren() {
@@ -114,15 +176,18 @@ wicketPreview.pageHeaderContribution = wicketPreview.pageHeaderContribution || f
   function loadChildren(node, children) {
     var child = children.shift();
     if (child) {
-      loadChild(node, child, children);
+      loadChild(getChildNode(node), child, children);
     }
   };
 
   function loadChild(node, url, children) {
-    node.find('wicket\\:child').load(url + ' wicket\\:extend', function(response, status, xhr){
+    var target = fixElementBugForIE(node);
+    $(target).load(url + ' wicket\\:extend', function(response, status, xhr){
+      var root = fixLoadBugForIE7(target, response, 'wicket:extend') || this;
+
       headerContributionForPage(response);
-      showComponents($(this));
-      loadChildren($(this), children);
+      showComponents($(root));
+      loadChildren($(root), children);
     });
   }
 
@@ -140,36 +205,46 @@ wicketPreview.pageHeaderContribution = wicketPreview.pageHeaderContribution || f
   }
 
   function resolvePanel(node, url, paths) {
-    $(node).load(url + " wicket\\:extend", function(response, status, xhr){
+    var target = fixElementBugForIE(node);
+    $(target).load(url + " wicket\\:extend", function(response, status, xhr){
+      var root = fixLoadBugForIE7(target, response, 'wicket:extend') || this;
+
       if (response.indexOf('<wicket:extend') > 0) {
         paths.push(url);
-        resolvePanel(node, getParentName(node) + wicketPreview.suffix, paths);
+        var parentName = getParentName(root);
+        resolvePanel(target, getParentName(root) + wicketPreview.suffix, paths);
       } else {
-        loadPanel(node, url, paths);
+        loadPanel(target, url, paths);
       }
     });
   };
 
   function loadPanel(node, url, paths) {
-    $(node).load(url + " wicket\\:panel", function(response, status, xhr){
+    var target = fixElementBugForIE(node);
+    $(target).load(url + " wicket\\:panel", function(response, status, xhr){
+      var root = fixLoadBugForIE7(target, response, 'wicket:panel') || this;
+
       headerContributionForPanel(response);
-      showComponents($(this));
+      showComponents($(root));
 
       var child = paths.shift();
       if (child) {
-        loadChildPanel($('wicket\\:child', node), child, paths);
+        loadChildPanel(getChildNode(root), child, paths);
       }
     });
   };
 
   function loadChildPanel(node, url, paths) {
-    $(node).load(url + " wicket\\:extend", function(response, status, xhr){
+    var target = fixElementBugForIE(node);
+    $(target).load(url + " wicket\\:extend", function(response, status, xhr){
+      var root = fixLoadBugForIE7(target, response, 'wicket:extend') || this;
+
       headerContributionForPanel(response);
-      showComponents($(this));
+      showComponents($(root));
 
       var child = paths.shift();
       if (child) {
-        loadPanel($('wicket\\:child', node), child, paths);
+        loadChildPanel(getChildNode(root), child, paths);
       }
     });
   };
@@ -180,6 +255,15 @@ wicketPreview.pageHeaderContribution = wicketPreview.pageHeaderContribution || f
       var id = this.getAttribute('wicket:id');
       fragments[id] = this;
     });
+
+    // for IE7
+    if (!$.support.tbody) {
+      var tags = document.getElementsByTagName('fragment');
+      for(var i = 0; i < tags.length; i++) {
+        var id = tags[i].getAttribute('wicket:id');
+        fragments[id] = tags[i];
+      }
+    }
 
     $('[data-fragment]', node).each(function(){
       var fragment = $(this).data('fragment');
@@ -199,6 +283,53 @@ wicketPreview.pageHeaderContribution = wicketPreview.pageHeaderContribution || f
       }
       $(this).hide();
     });
+  };
+
+  function fixElementBugForIE(node) {
+    // for IE7
+    if (!$.support.tbody) {
+      var divIE7 = $('<span>');
+      $(divIE7).insertAfter(node);
+
+      // copy data-panel attribute only
+      $(divIE7).attr('data-panel', $(node).attr('data-panel'));
+
+      $(node).remove();
+      return divIE7;
+    }
+
+    // for IE8 & UknownElement(i.e. <wicket:container>)
+    if (node instanceof HTMLUnknownElement && !$.support.leadingWhitespace) {
+      var divIE8 = $('<div>');
+      $(divIE8).insertAfter(node);
+
+      // copy all attribute
+      $.each($(node).prop('attributes'), function(){
+        $(divIE8).attr(this.name, this.value);
+      });
+
+      $(node).remove();
+      return divIE8;
+    }
+
+    return node;
+  };
+
+  function fixLoadBugForIE7(target, response, tag) {
+    // not IE7
+    if ($.support.tbody) {
+      return;
+    }
+
+    var beginTag = '<' + tag;
+    var endTag = '</' + tag + '>';
+
+    var begin = response.indexOf(beginTag);
+    var end = response.indexOf(endTag);
+
+    var html = response.slice(begin, end + endTag.length);
+    $(target).html(html);
+    return $(target).children().get(0);
   };
 
 })(wicketPreview);
